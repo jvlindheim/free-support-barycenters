@@ -5,7 +5,7 @@ Using the `emd` OT solver from the [Python Optimal Transport (POT)](https://pyth
 ## Installation
 1. Download the code or clone the Github repository with
 ```
-git clone https://github.com/jvlindheim/mot.git
+git clone https://github.com/jvlindheim/free-support-barycenters.git
 ```
 2. For the code in `mot.py`, there is the following dependencies: `numpy`, `matplotlib.pyplot`, the `cdist` function from `scipy.spatial.distance` and the `emd` function from the [POT](https://pythonot.github.io/index.html) library. You can install them e.g. using pip via
 ```
