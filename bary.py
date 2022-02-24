@@ -106,7 +106,7 @@ def ref_supports_from_alignment(alignment, weights=None, precision=7):
 Pairwise algorithm.
 """
 
-def pairwise_bary(supports, masses, weights=None, precision=7):
+def pairwise_bary(supports, masses, weights=None, compute_err_bound=False, precision=7):
     """
     Computation of an approximate Wasserstein-2 barycenter using the pairwise algorithm.
     Convenience method combining computation of all pairwise transport plans and construction
@@ -136,7 +136,8 @@ def pairwise_bary(supports, masses, weights=None, precision=7):
         weights = np.ones((n,)) / n
     assert np.round(weights.sum(), decimals=precision) == 1, "weights need to sum to one"
 
-    return pairwise_bary_from_kernels(supports, masses, pairwise_kernels(supports, masses), weights, precision)
+    return pairwise_bary_from_kernels(supports, masses, pairwise_kernels(supports, masses),
+                                      weights, compute_err_bound, precision)
 
 def pairwise_kernels(supports, masses):
     '''
@@ -172,7 +173,7 @@ def pairwise_kernels(supports, masses):
     
     return pairwise_pis/total_masses[:, None]
 
-def pairwise_bary_from_kernels(supports, masses, kernels, weights=None, precision=7):
+def pairwise_bary_from_kernels(supports, masses, kernels, weights=None, compute_err_bound=False, precision=7):
     '''
     From the precomputed result from 'pairwise_kernels', 
     compute a barycenter with respect to a given set of weights.
@@ -185,12 +186,16 @@ def pairwise_bary_from_kernels(supports, masses, kernels, weights=None, precisio
     weights=None: array of same length as number of measures, needs to sum to one.
         These are the weights in the barycenter problem, typically denoted by lambda_i.
         If None is given, use uniform weights.
+    compute_err_bound=False: If set to True, additionally to the barycenter, a bound for the relative error is returned.
     precision=7: Rounded to which decimal place the weights need to sum up to one.
     
     Returns
     -------
     bary_supp: Barycenter support positions.
     bary_masses: Barycenter masses corresponding to the support positions.
+    error_bound: only returned if compute_err_bound is set to True.
+        This is an upper bound on the relative error <= 1, where the relative is defined as
+        Psi(approx. bary)/Psi(opt. bary) - 1 with Psi being the optimization functional of the barycenter problem.
     '''
     
     supports, masses, n, nis, d = prepare_data(supports, masses)
@@ -204,8 +209,17 @@ def pairwise_bary_from_kernels(supports, masses, kernels, weights=None, precisio
     # compute barycenter from pairwise transport kernels
     bary_masses = np.concatenate([w*mass for w, mass in zip(weights, masses)])
     bary_supp = kernels.dot(np.concatenate([w*supp for w, supp in zip(weights, supports)], axis=0))
+    
+    if compute_err_bound:
+        total_support = np.concatenate(supports)
+        nis_cum = np.concatenate([[0], np.cumsum(nis)])
+        # compute error bound
+        enum = (bary_masses*(((total_support-bary_supp)**2).sum(axis=1))).sum() # weighted dists from bary to input measures
+        denom = 2-0.5*sum([w*(np.repeat(weights, nis)*cdist(supp, total_support, 'sqeuclidean')*kernels[nis_cum[i]:nis_cum[i+1]]*mass[:, None]).sum()
+                    for i, (w, supp, mass) in enumerate(zip(weights, supports, masses))]) # pairwise W2-dists
+        return bary_supp, bary_masses, enum/denom
+    
     return bary_supp, bary_masses
-
 
 """
 Helper functions.
