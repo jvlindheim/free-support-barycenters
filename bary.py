@@ -215,9 +215,13 @@ def pairwise_bary_from_kernels(supports, masses, kernels, weights=None, compute_
         nis_cum = np.concatenate([[0], np.cumsum(nis)])
         # compute error bound
         enum = (bary_masses*(((total_support-bary_supp)**2).sum(axis=1))).sum() # weighted dists from bary to input measures
-        denom = 2-0.5*sum([w*(np.repeat(weights, nis)*cdist(supp, total_support, 'sqeuclidean')*kernels[nis_cum[i]:nis_cum[i+1]]*mass[:, None]).sum()
+        denom = 0.5*sum([w*(np.repeat(weights, nis)*cdist(supp, total_support, 'sqeuclidean')*kernels[nis_cum[i]:nis_cum[i+1]]*mass[:, None]).sum()
                     for i, (w, supp, mass) in enumerate(zip(weights, supports, masses))]) # pairwise W2-dists
-        return bary_supp, bary_masses, enum/denom
+        if denom > 0:
+            err_bound = min(2-enum/denom, 2.0)
+        else:
+            err_bound = 2.0 if enum > 0 else 1.0
+        return bary_supp, bary_masses, err_bound
     
     return bary_supp, bary_masses
 
